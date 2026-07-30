@@ -1,39 +1,45 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
-session_set_cookie_params([
-    'httponly' => true,
-    'secure'   => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
-    'samesite' => 'Lax',
-]);
+set_time_limit(120);
 
-session_start();
-
-$config  = require __DIR__ . '/config.php';
-$api_key = trim($config['AQ.Ab8RN6Ls4O9yZ14D4aYiJzru3fgUNWEkEw5cVkVdOKFKEYzmiQ'] ?? '');
-$model   = 'gemini-2.5-flash';
-
-$system_prompt = <<<TEXT
-تو «هوش مصنوعی آقای انیمه» هستی.
-فقط به پرسش‌های مربوط به انیمه، مانگا، شخصیت‌ها و دنیای انیمه پاسخ بده.
-اگر پرسش درباره موضوع دیگری بود، دوستانه و با لحن انیمه‌ای توضیح بده که فقط متخصص انیمه و مانگا هستی.
-پاسخ‌ها را به زبان فارسی، صمیمی و خوانا بنویس.
-TEXT;
-
-if (!isset($_SESSION['chat_history'])) {
-    $_SESSION['chat_history'] = [];
+if (!file_exists('madeline.phar')) {
+    die("Error: madeline.phar file does not exist!");
 }
 
-$error_message = $_SESSION['flash_error'] ?? '';
-unset($_SESSION['flash_error']);
+require_once 'madeline.phar';
 
-// پاک‌کردن گفتگو
-if (isset($_GET['clear'])) {
-    $_SESSION['chat_history'] = [];
+use danog\MadelineProto\API;
+use danog\MadelineProto\Settings;
+use danog\MadelineProto\Settings\AppInfo;
 
-    header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
-    exit;
+try {
+    // تنظیمات استاندارد نسخه جدید
+    $settings = new Settings();
+    $appInfo = new AppInfo();
+    $appInfo->setApiId(6);
+    $appInfo->setApiHash('eb06d4abfb49d3eef5a3d84377c714d9');
+    $settings->setAppInfo($appInfo);
+
+    $MadelineProto = new API('session.madeline', $settings);
+    
+    // شروع فرایند لاگین
+    $MadelineProto->start();
+
+    if ($MadelineProto->getSelf()) {
+        echo "<h1>لاگین با موفقیت انجام شد!</h1>";
+        $MadelineProto->messages->sendMessage([
+            'peer' => 'me',
+            'message' => 'سلام علی! میدلاین با موفقیت متصل شد 🔥'
+        ]);
+    }
+
+} catch (\Throwable $e) {
+    echo "<br><strong>ارور رخ داده:</strong> " . $e->getMessage() . "<br>";
+    echo "<pre>" . $e->getTraceAsString() . "</pre>";
 }
-
 // دریافت پیام
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user_msg = trim($_POST['user_message'] ?? '');
